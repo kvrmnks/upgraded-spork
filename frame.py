@@ -26,6 +26,8 @@ R1 = tk.Label(windows, textvariable=R1Var)
 R2 = tk.Label(windows, textvariable=R2Var)
 R1.pack()
 R2.pack()
+R1Var.set('R1:')
+R2Var.set('R2:')
 
 
 def process():
