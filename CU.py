@@ -1,5 +1,4 @@
 from ALU import *
-import math
 
 modules = [('load', 0), ('原码乘法', 1), ('补码乘法', 2)]
 
@@ -10,17 +9,22 @@ bit10 = (1 << 4)
 
 def load(textArea: tk.Text, config: tk.Variable, input1: str, input2: str, bit=_bit_) -> [str, str]:
     n2um1 = load_complement(textArea, input1, bit)
+    yield [list2str(n2um1), ""]
     n2um2 = load_complement(textArea, input2, bit)
-    return [list2str(n2um1), list2str(n2um2)]
+    yield [list2str(n2um1), list2str(n2um2)]
 
 
 def raw_mul(textArea: tk.Text, config: tk.Variable, input1: str, input2: str, bit=_bit_) -> [str, str]:
     R1 = load_raw(textArea, input1, bit)
+    # yield
     R2 = load_raw(textArea, input2, bit)
+    yield [list2str(R1), list2str(R2)]
     textArea.insert(tk.END, '原码一位乘 ' + list2str(R1) + ' ' + list2str(R2) + '\n')
+    # yield
     flag = R1[0] ^ R2[0]
     R1[0] = R2[0] = 0
     textArea.insert(tk.END, '确定符号位 ' + str(flag) + '\n')
+    yield [list2str(R1), list2str(R2)]
     partial_sum = [0 for i in range(bit + 1)]
     for i in range(bit):
         if R2[bit] == 1:
@@ -33,6 +37,8 @@ def raw_mul(textArea: tk.Text, config: tk.Variable, input1: str, input2: str, bi
         textArea.insert(tk.END, '部分和')
         partial_sum = logic_right_shift(textArea, partial_sum)
         textArea.insert(tk.END, '部分和 ' + list2str(partial_sum) + ' 寄存器' + list2str(R2) + '\n')
+        yield [list2str(partial_sum), list2str(R2)]
+
     partial_sum[0] = flag
     ans = partial_sum.copy()
     textArea.insert(tk.END, '原码一位乘结果为 ' + list2str(partial_sum))
@@ -40,8 +46,9 @@ def raw_mul(textArea: tk.Text, config: tk.Variable, input1: str, input2: str, bi
         textArea.insert(tk.END, str(R2[i]))
         ans.append(R2[i])
     textArea.insert(tk.END, '\n')
+    yield [list2str(partial_sum), list2str(R2)]
     raw_list2number_1flag(textArea, ans)
-    return [list2str(partial_sum), list2str(R2)]
+    yield [list2str(partial_sum), list2str(R2)]
 
 
 def complement_mul(textArea: tk.Text, config: tk.Variable, input1: str, input2: str, bit=_bit_) -> [str, str]:
@@ -50,12 +57,18 @@ def complement_mul(textArea: tk.Text, config: tk.Variable, input1: str, input2: 
     R1.insert(0, R1[0])
     R2.insert(0, R2[0])
     textArea.insert(tk.END, '扩容成双符号位 ' + list2str(R1) + ' ' + list2str(R2) + '\n')
+
+    yield [list2str(R1), list2str(R2)]
+
     R3 = load_complement(textArea, str(-int(input1)), bit)
     R3.insert(0, R3[0])
     textArea.insert(tk.END, '得到被乘数加法逆元的补码 ' + list2str(R3) + '\n')
     textArea.insert(tk.END, '添加末尾0\n')
     R2 = logic_left_shift(textArea, R2, bit + 1)
     partial_sum = [0 for i in range(bit + 2)]
+
+    yield [list2str(partial_sum), list2str(R2)]
+
     for i in range(bit + 1):
         flag = R2[bit + 1] - R2[bit]
         textArea.insert(tk.END, '寄存器的尾数为 ' + str(R2[bit]) + ' ' + str(R2[bit + 1]) + '\n')
@@ -69,21 +82,41 @@ def complement_mul(textArea: tk.Text, config: tk.Variable, input1: str, input2: 
             R2[0] = partial_sum[bit + 1]
             partial_sum = arithmetic_right_shift(textArea, partial_sum, bit + 1)
         textArea.insert(tk.END, '部分和 ' + list2str(partial_sum) + '寄存器 ' + list2str(R2) + '\n')
+
+        yield [list2str(partial_sum), list2str(R2)]
+
     ans = partial_sum.copy()
     textArea.insert(tk.END, '补码一位乘结果为 ' + list2str(partial_sum))
     for i in range(bit):
         textArea.insert(tk.END, R2[i])
         ans.append(R2[i])
     textArea.insert(tk.END, '\n')
+    yield [list2str(partial_sum), list2str(R2)]
     complement_list2number_2flag(textArea, ans)
-    return [list2str(partial_sum), list2str(R2)]
+    yield [list2str(partial_sum), list2str(R2)]
 
 
-def calc(textArea: tk.Text, config: tk.Variable, input1: str, input2: str) -> [str, str]:
+cu_iter = None
+
+
+def calc(textArea: tk.Text, config: tk.Variable, input1: str, input2: str):
+    global cu_iter
     if config == 0:
-        return load(textArea, config, input1, input2)
+        cu_iter = load(textArea, config, input1, input2)
     if config == 1:
-        return raw_mul(textArea, config, input1, input2)
+        cu_iter = raw_mul(textArea, config, input1, input2)
     if config == 2:
-        return complement_mul(textArea, config, input1, input2)
-    return ['12', '23']
+        cu_iter = complement_mul(textArea, config, input1, input2)
+    # return ['12', '23']
+
+
+def next_step():
+    global cu_iter
+    try:
+        r = next(cu_iter)
+        return r
+        # if r is not None:
+        #     R1Var.set('R1:' + r[0])
+        #     R2Var.set('R2:' + r[1])
+    except Exception:
+        return None

@@ -16,6 +16,14 @@
 python main.py
 ```
 
+输入完之后点一下send把数存起来
+
+之后就可以连击next step按钮开始单步运行了
+
+## 更新
+
+2021.1.16 加入单步运行！ python yyds
+
 ## 运行截图
 
-<img src="image-20210101152215224.png" alt="image-20210101152215224" style="zoom: 50%;" />
+<img src="image-20210106101257772.png" alt="image-20210106101257772" style="zoom: 67%;" />
