@@ -1,113 +1,123 @@
 from ALU import *
 
-modules = [('load', 0), ('原码乘法', 1), ('补码乘法', 2)]
-
-# 4位寄存器
-_bit_ = 4
-bit10 = (1 << 4)
+modules = [('输入', 0), ('原码乘法', 1), ('补码乘法', 2), ('IEEE754解析', 3), ('浮点数转IEEE754', 4)]
+register_modules = [('RAX', 0), ('RBX', 1), ('RCX', 2), ('RDX', 3)]
+REGISTER = [Register(1), Register(1), Register(1), Register(1)]
 
 
-def load(textArea: tk.Text, config: tk.Variable, input1: str, input2: str, bit=_bit_) -> [str, str]:
-    n2um1 = load_complement(textArea, input1, bit)
-    yield [list2str(n2um1), ""]
-    n2um2 = load_complement(textArea, input2, bit)
-    yield [list2str(n2um1), list2str(n2um2)]
+def covert_complement_to_raw(RX: Register):
+    o = Register(RX.bit_length)
+    for i in range(RX.bit_capacity):
+        o[i] = 1
+    RX.add(o)
+    RX.flip_partial()
+    RX[RX.bit_capacity - 2] = RX[RX.bit_capacity - 1]
 
 
-def raw_mul(textArea: tk.Text, config: tk.Variable, input1: str, input2: str, bit=_bit_) -> [str, str]:
-    R1 = load_raw(textArea, input1, bit)
-    # yield
-    R2 = load_raw(textArea, input2, bit)
-    yield [list2str(R1), list2str(R2)]
-    textArea.insert(tk.END, '原码一位乘 ' + list2str(R1) + ' ' + list2str(R2) + '\n')
-    # yield
-    flag = R1[0] ^ R2[0]
-    R1[0] = R2[0] = 0
+def load(textArea: tk.Text, registerConfig: int, input1: str, bit_length: int) -> []:
+    input1 = int(input1)
+    textArea.insert(tk.END, '加载' + str(input1) + '到' + register_modules[registerConfig][0] + '\n')
+    REGISTER[registerConfig] = Register(bit_length)
+    REGISTER[registerConfig].set_by_ratio(input1)
+    yield [x.to_binary_string() for x in REGISTER]
+
+
+def raw_mul(textArea: tk.Text) -> []:
+    RAX, RBX, RCX = REGISTER[0], REGISTER[1], REGISTER[2]
+    if RAX.bit_capacity != RBX.bit_capacity:
+        raise Exception
+    else:
+        RCX = REGISTER[2] = Register(RAX.bit_length)
+
+    textArea.insert(tk.END, '原码一位乘 \n')
+
+    flag = RAX.get_number_flag() ^ RBX.get_number_flag()
+
+    if RAX[RAX.bit_capacity - 1] == 1:
+        covert_complement_to_raw(RAX)
+    if RBX[RBX.bit_capacity - 1] == 1:
+        covert_complement_to_raw(RBX)
+    RBX.logistic_left_shift()
+    RBX.logistic_left_shift()
     textArea.insert(tk.END, '确定符号位 ' + str(flag) + '\n')
-    yield [list2str(R1), list2str(R2)]
-    partial_sum = [0 for i in range(bit + 1)]
-    for i in range(bit):
-        if R2[bit] == 1:
+    yield [x.to_binary_string() for x in REGISTER]
+
+    for i in range(RBX.bit_length):
+        if RBX[2] == 1:
             textArea.insert(tk.END, '寄存器最后一位为1 加\n')
-            partial_sum = add(textArea, partial_sum, R1)
+            RCX.add(RAX)
         textArea.insert(tk.END, '寄存器与部分和右移\n')
         textArea.insert(tk.END, '寄存器')
-        R2 = logic_right_shift(textArea, R2)
-        R2[1] = partial_sum[bit]
-        textArea.insert(tk.END, '部分和')
-        partial_sum = logic_right_shift(textArea, partial_sum)
-        textArea.insert(tk.END, '部分和 ' + list2str(partial_sum) + ' 寄存器' + list2str(R2) + '\n')
-        yield [list2str(partial_sum), list2str(R2)]
+        RBX.logistic_right_shift()
+        RBX[RBX.bit_capacity - 1] = RCX[0]
+        RCX.logistic_right_shift()
+        textArea.insert(tk.END, '部分和 ' + RCX.to_binary_string() + '\n')
+        yield [x.to_binary_string() for x in REGISTER]
 
-    partial_sum[0] = flag
-    ans = partial_sum.copy()
-    textArea.insert(tk.END, '原码一位乘结果为 ' + list2str(partial_sum))
-    for i in range(1, bit + 1):
-        textArea.insert(tk.END, str(R2[i]))
-        ans.append(R2[i])
-    textArea.insert(tk.END, '\n')
-    yield [list2str(partial_sum), list2str(R2)]
-    raw_list2number_1flag(textArea, ans)
-    yield [list2str(partial_sum), list2str(R2)]
+    RCX[RCX.bit_capacity - 1] = RCX[RCX.bit_capacity - 2] = flag
+    o = RCX.to_binary_string()
+    for i in range(RBX.bit_capacity - 1, 1, -1):
+        o += str(RBX[i])
+    p = Register(2 * RAX.bit_length)
+    p.set_by_binary_string(o)
+    textArea.insert(tk.END, '原码一位乘结果为 ' + p.to_binary_string() + '\n 值为 ' + str(p.convert_raw_ratio()))
+
+    yield [x.to_binary_string() for x in REGISTER]
 
 
-def complement_mul(textArea: tk.Text, config: tk.Variable, input1: str, input2: str, bit=_bit_) -> [str, str]:
-    R1 = load_complement(textArea, input1, bit)
-    R2 = load_complement(textArea, input2, bit)
-    R1.insert(0, R1[0])
-    R2.insert(0, R2[0])
-    textArea.insert(tk.END, '扩容成双符号位 ' + list2str(R1) + ' ' + list2str(R2) + '\n')
+def complement_mul(textArea: tk.Text) -> []:
+    RAX, RBX, RCX, RDX = REGISTER[0], REGISTER[1], REGISTER[2], REGISTER[3]
+    if RAX.bit_capacity != RBX.bit_capacity:
+        raise Exception
+    else:
+        RCX = REGISTER[2] = Register(RAX.bit_length)
+        RDX = REGISTER[3] = Register(RAX.bit_length)
 
-    yield [list2str(R1), list2str(R2)]
-
-    R3 = load_complement(textArea, str(-int(input1)), bit)
-    R3.insert(0, R3[0])
-    textArea.insert(tk.END, '得到被乘数加法逆元的补码 ' + list2str(R3) + '\n')
+    RDX.set_by_ratio(-RAX.convert_complement_ratio())
+    textArea.insert(tk.END, '得到被乘数加法逆元的补码 ' + RDX.to_binary_string() + '\n')
     textArea.insert(tk.END, '添加末尾0\n')
-    R2 = logic_left_shift(textArea, R2, bit + 1)
-    partial_sum = [0 for i in range(bit + 2)]
 
-    yield [list2str(partial_sum), list2str(R2)]
+    RBX.logistic_left_shift()
+    yield [x.to_binary_string() for x in REGISTER]
 
-    for i in range(bit + 1):
-        flag = R2[bit + 1] - R2[bit]
-        textArea.insert(tk.END, '寄存器的尾数为 ' + str(R2[bit]) + ' ' + str(R2[bit + 1]) + '\n')
+    for i in range(RAX.bit_length + 1):
+        flag = RBX[0] - RBX[1]
+        textArea.insert(tk.END, '寄存器的尾数为 ' + str(RBX[0]) + ' ' + str(RBX[1]) + '\n')
         textArea.insert(tk.END, '当前状态为 ' + str(flag) + '\n')
         if flag == 1:
-            partial_sum = add(textArea, partial_sum, R1)
+            textArea.insert(tk.END, '部分和加RAX\n')
+            RCX.add(RAX)
         elif flag == -1:
-            partial_sum = add(textArea, partial_sum, R3)
-        if i != bit:
-            R2 = logic_right_shift(textArea, R2, bit + 1)
-            R2[0] = partial_sum[bit + 1]
-            partial_sum = arithmetic_right_shift(textArea, partial_sum, bit + 1)
-        textArea.insert(tk.END, '部分和 ' + list2str(partial_sum) + '寄存器 ' + list2str(R2) + '\n')
+            textArea.insert(tk.END, '部分和加负RAX\n')
+            RCX.add(RDX)
+        if i != RAX.bit_length:
+            textArea.insert(tk.END, '部分和与RBX右移\n')
+            RBX.logistic_right_shift()
+            RBX[RBX.bit_capacity - 1] = RCX[0]
+            RCX.arithmetic_right_shift()
 
-        yield [list2str(partial_sum), list2str(R2)]
+        yield [x.to_binary_string() for x in REGISTER]
 
-    ans = partial_sum.copy()
-    textArea.insert(tk.END, '补码一位乘结果为 ' + list2str(partial_sum))
-    for i in range(bit):
-        textArea.insert(tk.END, R2[i])
-        ans.append(R2[i])
-    textArea.insert(tk.END, '\n')
-    yield [list2str(partial_sum), list2str(R2)]
-    complement_list2number_2flag(textArea, ans)
-    yield [list2str(partial_sum), list2str(R2)]
+    o = RCX.to_binary_string()
+    for i in range(RBX.bit_capacity - 1, 1, -1):
+        o += str(RBX[i])
+    p = Register(2 * RAX.bit_length)
+    p.set_by_binary_string(o)
+    textArea.insert(tk.END, '补码一位乘结果为 ' + p.to_binary_string() + '\n' + '值为 ' + str(p.convert_complement_ratio()))
+    yield [x.to_binary_string() for x in REGISTER]
 
 
 cu_iter = None
 
 
-def calc(textArea: tk.Text, config: tk.Variable, input1: str, input2: str):
+def calc(textArea: tk.Text, config: int, registerConfig: int, input1: str, bit_length: int):
     global cu_iter
     if config == 0:
-        cu_iter = load(textArea, config, input1, input2)
+        cu_iter = load(textArea, registerConfig, input1, bit_length)
     if config == 1:
-        cu_iter = raw_mul(textArea, config, input1, input2)
+        cu_iter = raw_mul(textArea)
     if config == 2:
-        cu_iter = complement_mul(textArea, config, input1, input2)
-    # return ['12', '23']
+        cu_iter = complement_mul(textArea)
 
 
 def next_step():
@@ -115,8 +125,5 @@ def next_step():
     try:
         r = next(cu_iter)
         return r
-        # if r is not None:
-        #     R1Var.set('R1:' + r[0])
-        #     R2Var.set('R2:' + r[1])
     except Exception:
         return None

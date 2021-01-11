@@ -22,8 +22,17 @@ python main.py
 
 ## 更新
 
-2021.1.16 加入单步运行！ python yyds
+2021.1.6 加入单步运行！ python yyds
+
+2021.1.11 代码重构，支持对于不同的寄存器的读写，以及预设计寄存器位数
 
 ## 运行截图
 
-<img src="image-20210106101257772.png" alt="image-20210106101257772" style="zoom: 67%;" />
+版本3
+
+<img src="image-20210111202841757.png" alt="image-20210106101257772"  width="200" height="350" />
+
+版本2
+
+<img src="image-20210106101257772.png" alt="image-20210106101257772"  width="200" height="350" />
+

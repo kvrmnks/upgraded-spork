@@ -1,5 +1,5 @@
 from frame import *
-
+import ALU
 if __name__ == '__main__':
-    # print(str([12, 3, 4, ]))
     windows.mainloop()
+

@@ -1,139 +1,111 @@
 import tkinter as tk
+from typing import TypeVar
 
 _bit_ = 4
 
-
-def list2str(x: list) -> str:
-    r = ''
-    for i in x:
-        r = r + str(i)
-    return r
+T = TypeVar('T', bound='Register')
 
 
-def str2list(x: str, bit=_bit_) -> list:
-    r = [0 for i in range(bit + 1)]
-    for i in range(bit + 1):
-        r[i] = ord(x[i]) - ord('0')
-    return r
+class Register(object):
+    def __init__(self, bit_length: int):
+        self.bit_length = bit_length
+        self.bit_capacity = self.bit_length + 2
+        self.bit_array = [0 for _ in range(self.bit_capacity)]
 
+    def __getitem__(self, item: int) -> int:
+        return self.bit_array[item]
 
-# 不翻转第一位
-def flip(textArea: tk.Text, x: list) -> list:
-    textArea.insert(tk.END, '翻转 ' + list2str(x) + '\n')
-    for i in range(1, len(x)):
-        x[i] ^= 1
-    textArea.insert(tk.END, '翻转完成 ' + list2str(x) + '\n')
-    return x
+    def get_number_flag(self):
+        return self.bit_array[self.bit_capacity - 1]
 
+    def __setitem__(self, key: int, value: int):
+        self.bit_array[key] = value
 
-# 全部参与运算
-def add(textArea: tk.Text, x: list, y: list) -> list:
-    textArea.insert(tk.END, '相加 ' + list2str(x) + ' ' + list2str(y) + '\n')
-    curSum = 0
-    for i in range(len(x)-1, -1, -1):
-        x[i] += curSum + y[i]
-        curSum = x[i] >> 1
-        x[i] %= 2
-    textArea.insert(tk.END, '相加结果为: ' + list2str(x) + '\n')
-    return x
+    def set_by_ratio(self, x: int):
+        upper = (1 << self.bit_length) - 1
+        bound = -(1 << self.bit_length)
+        if x > upper or x < bound:
+            raise Exception
+        if x < 0:
+            flag = 1
+            self[self.bit_capacity - 1] = self[self.bit_capacity - 2] = 1
+            x = -x
+        else:
+            flag = 0
+        for i in range(self.bit_length):
+            self[i] = (x & 1)
+            x >>= 1
+        if flag == 1:
+            self.flip_partial()
+            o = Register(self.bit_length)
+            o[0] = 1
+            self.add(o)
+            self[self.bit_capacity - 1] = self[self.bit_capacity - 2] = 1
 
+    def set_by_binary_string(self, content: str):
+        if content is None or len(content) != self.bit_capacity:
+            raise Exception
+        for i in range(self.bit_capacity):
+            self.bit_array[i] = ord(content[self.bit_capacity - i - 1]) - ord('0')
 
-def logic_left_shift(textArea: tk.Text, x: list, bit=_bit_) -> list:
-    textArea.insert(tk.END, '逻辑左移 ' + list2str(x) + '\n')
-    for i in range(1, bit + 1):
-        x[i - 1] = x[i]
-    x[bit] = 0
-    textArea.insert(tk.END, '逻辑左移完成 ' + list2str(x) + '\n')
-    return x
+    def to_binary_string(self) -> str:
+        binary_string = ""
+        for i in range(self.bit_capacity):
+            binary_string += str(self.bit_array[self.bit_capacity - i - 1])
+        return binary_string
 
+    def logistic_left_shift(self):
+        for i in range(self.bit_capacity - 1, 0, -1):
+            self.bit_array[i] = self.bit_array[i - 1]
+        self.bit_array[0] = 0
 
-def logic_right_shift(textArea: tk.Text, x: list, bit=_bit_) -> list:
-    textArea.insert(tk.END, '逻辑右移 ' + list2str(x) + '\n')
-    for i in range(bit, 0, -1):
-        x[i] = x[i - 1]
-    x[0] = 0
-    textArea.insert(tk.END, '逻辑右移完成 ' + list2str(x) + '\n')
-    return x
+    def logistic_right_shift(self):
+        for i in range(0, self.bit_capacity - 1):
+            self.bit_array[i] = self.bit_array[i + 1]
+        self.bit_array[self.bit_capacity - 1] = 0
 
+    def arithmetic_right_shift(self):
+        for i in range(0, self.bit_capacity - 1):
+            self.bit_array[i] = self.bit_array[i + 1]
 
-def arithmetic_left_shift(textArea: tk.Text, x: list, bit=_bit_) -> list:
-    textArea.insert(tk.END, '补码算数左移 ' + list2str(x) + '\n')
-    for i in range(1, bit):
-        x[i] = x[i + 1]
-    x[bit + 1] = 0
-    textArea.insert(tk.END, '补码算数左移完成 ' + list2str(x) + '\n')
-    return x
+    def arithmetic_left_shift(self):
+        for i in range(self.bit_capacity - 3, 0, -1):
+            self.bit_array[i] = self.bit_array[i - 1]
+        self.bit_array[0] = 0
 
+    def flip_all(self):
+        for i in range(self.bit_capacity):
+            self.bit_array[i] = 1 - self.bit_array[i]
 
-def arithmetic_right_shift(textArea: tk.Text, x: list, bit=_bit_) -> list:
-    textArea.insert(tk.END, '补码算数右移 ' + list2str(x) + '\n')
-    for i in range(bit, 0, -1):
-        x[i] = x[i - 1]
-    textArea.insert(tk.END, '补码算数右移完成 ' + list2str(x) + '\n')
-    return x
+    def flip_partial(self):
+        for i in range(self.bit_capacity - 1):
+            self.bit_array[i] = 1 - self.bit_array[i]
 
+    def add(self, o: T):
+        if o.bit_capacity != self.bit_capacity:
+            raise Exception
+        partial_sum = 0
+        for i in range(self.bit_capacity):
+            partial_sum += self.bit_array[i] + o.bit_array[i]
+            self.bit_array[i] = partial_sum % 2
+            partial_sum >>= 1
 
-def load_raw(textArea: tk.Text, x: str, bit=_bit_) -> list:
-    number = int(x)
-    n2um1 = [0 for i in range(bit + 1)]
-    if number < 0:
-        n2um1[0] = 1
-        number = -number
-    t = 1
-    while t <= bit:
-        n2um1[bit + 1 - t] = (number % 2)
-        number >>= 1
-        t += 1
-    textArea.insert(tk.END, '获得原码\n')
-    textArea.insert(tk.END, list2str(n2um1) + '\n')
-    return n2um1
+    def convert_complement_ratio(self) -> int:
+        if self.bit_array[self.bit_capacity - 1] == 0:
+            return self.convert_raw_ratio()
+        o = Register(self.bit_length)
+        o.flip_all()
+        o.add(self)
+        o.flip_partial()
+        return o.convert_raw_ratio()
 
-
-def load_complement(textArea: tk.Text, x: str, bit=_bit_) -> list:
-    n2um = load_raw(textArea, x, bit)
-    if n2um[0] == 1:
-        n2um = flip(textArea, n2um)
-        tmp = [0 for i in range(bit + 1)]
-        tmp[bit] = 1
-        n2um = add(textArea, n2um, tmp)
-        n2um[0] = 1
-    textArea.insert(tk.END, '获得补码')
-    textArea.insert(tk.END, list2str(n2um) + '\n')
-    return n2um
-
-
-def complement_list2number_1flag(textArea: tk.Text, x: list) -> int:
-    textArea.insert(tk.END, '将2进制补码转为10进制 ' + list2str(x) + '\n')
-    if x[0] == 1:
-        tmp = [1 for i in range(len(x))]
-        x = add(textArea, x, tmp)
-        x = flip(textArea, x)
-        x.pop(0)
-        number = -int(list2str(x), 2)
-    else:
-        x.pop(0)
-        number = int(list2str(x), 2)
-    textArea.insert(tk.END, '结果为 ' + str(number) + '\n')
-    return number
-
-
-def complement_list2number_2flag(textArea: tk.Text, x: list) -> int:
-    x.pop(0)
-    return complement_list2number_1flag(textArea, x)
-
-
-def raw_list2number_1flag(textArea: tk.Text, x: list) -> int:
-    textArea.insert(tk.END, '将2进制原码转为10进制 ' + list2str(x) + '\n')
-    if x[0] == 0:
-        flag = 1
-    else:
-        flag = -1
-    x.pop(0)
-    number = flag * int(list2str(x), 2)
-    textArea.insert(tk.END, '结果为 ' + str(number) + '\n')
-    return number
-
-
-def raw_list2number_2flag(textArea: tk.Text, x: list) -> int:
-    x.pop(0)
-    return raw_list2number_1flag(textArea, x)
+    def convert_raw_ratio(self) -> int:
+        if self.bit_array[self.bit_capacity - 1] == 0:
+            flag = 1
+        else:
+            flag = -1
+        partial_sum = 0
+        for i in range(self.bit_length - 1, -1, -1):
+            partial_sum <<= 1
+            partial_sum |= self.bit_array[i]
+        return flag * partial_sum
